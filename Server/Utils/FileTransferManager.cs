@@ -77,7 +77,7 @@ namespace VisualControl.Server.Utils
                     server.SendToDevice(targetDeviceId, MessageType.FileComplete, comp.Serialize());
                     TransferCompleted?.Invoke(task, false);
                 }
-                finally { _tasks.TryRemove(task.TaskId, out _); }
+                finally { TransferTask? removed; _tasks.TryRemove(task.TaskId, out removed); }
             });
             return task;
         }

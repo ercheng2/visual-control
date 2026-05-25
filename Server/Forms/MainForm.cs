@@ -534,7 +534,6 @@ namespace VisualControl.Server.Forms
 
         protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
         {
-            e.Vertical = true;
             using var pen = new Pen(Color.FromArgb(80, 85, 95), 1);
             if (e.Vertical)
                 e.Graphics.DrawLine(pen, e.Item.ContentRectangle.Left + 2, 4, e.Item.ContentRectangle.Left + 2, e.Item.ContentRectangle.Bottom - 4);
