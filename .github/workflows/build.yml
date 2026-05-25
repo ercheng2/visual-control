@@ -10,32 +10,29 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Setup .NET SDK
+    - name: Setup .NET 8
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
     - name: Publish Server
       shell: pwsh
       run: |
-        dotnet publish Server/VisualControl.Server.csproj -c Release -r win-x64 --self-contained false -o publish/Server
-        Compress-Archive -Path publish/Server/* -DestinationPath publish/VisualControlServer.zip
+        dotnet publish Server/VisualControl.Server.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish/Server
     - name: Publish Client
       shell: pwsh
       run: |
-        dotnet publish Client/VisualControl.Client.csproj -c Release -r win-x64 --self-contained false -o publish/Client
-        Compress-Archive -Path publish/Client/* -DestinationPath publish/VisualControlClient.zip
+        dotnet publish Client/VisualControl.Client.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish/Client
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v1.0-${{ github.run_number }}
         name: "VisualControl v1.0"
         body: |
-          分布式可视化中控系统
-          - VisualControlServer.zip: 控制端（设备管理、文件分发、远程桌面）
-          - VisualControlClient.zip: 显示端（后台托盘运行，接受控制）
-          - 运行需要 .NET Framework 4.8
+          分布式可视化中控系统 (自包含，无需安装运行时)
+          - VisualControlServer.exe: 控制端
+          - VisualControlClient.exe: 显示端
         files: |
-          publish/VisualControlServer.zip
-          publish/VisualControlClient.zip
+          publish/Server/VisualControlServer.exe
+          publish/Client/VisualControlClient.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
