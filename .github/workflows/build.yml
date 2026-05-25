@@ -14,21 +14,22 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-    - name: Publish Server
+    - name: Publish Server (framework-dependent single-file)
       shell: pwsh
       run: |
-        dotnet publish Server/VisualControl.Server.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish/Server
-    - name: Publish Client
+        dotnet publish Server/VisualControl.Server.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish/Server
+    - name: Publish Client (framework-dependent single-file)
       shell: pwsh
       run: |
-        dotnet publish Client/VisualControl.Client.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish/Client
+        dotnet publish Client/VisualControl.Client.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish/Client
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v1.0-${{ github.run_number }}
         name: "VisualControl v1.0"
         body: |
-          分布式可视化中控系统 (自包含，无需安装运行时)
+          分布式可视化中控系统
+          - 需要安装 .NET 8 运行时: https://dotnet.microsoft.com/download/dotnet/8.0
           - VisualControlServer.exe: 控制端
           - VisualControlClient.exe: 显示端
         files: |
