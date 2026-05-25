@@ -80,8 +80,6 @@ namespace VisualControl.Server.Forms
             _mainSplit = new SplitContainer
             {
                 Dock = DockStyle.Fill,
-                Panel1MinSize = 200,
-                Panel2MinSize = 300,
                 BackColor = Color.FromArgb(220, 225, 235),
                 SplitterWidth = 3
             };
@@ -304,6 +302,8 @@ namespace VisualControl.Server.Forms
             FormClosing += (s, e) => _server.Stop();
             Load += (s, e) =>
             {
+                _mainSplit.Panel1MinSize = 200;
+                _mainSplit.Panel2MinSize = 300;
                 if (_mainSplit.Width > 500)
                     _mainSplit.SplitterDistance = 300;
             };
