@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using VisualControl.Shared.Compression;
@@ -79,7 +80,6 @@ namespace VisualControl.Client.Screen
                         }
                     }
                     FrameCaptured?.Invoke(msg);
-
                     var elapsed = (DateTime.UtcNow - t0).TotalMilliseconds;
                     if (interval - elapsed > 0) Thread.Sleep((int)(interval - elapsed));
                     if (DateTime.UtcNow.Second % 5 == 0) sendFull = true;
@@ -106,40 +106,37 @@ namespace VisualControl.Client.Screen
 
         private Rectangle? DetectChange(Bitmap cur, Bitmap prev)
         {
-            int block = 32;
+            int block = 64;
             int minX = _width, minY = _height, maxX = 0, maxY = 0;
             bool changed = false;
-            var cd = cur.LockBits(new Rectangle(0, 0, _width, _height), ImageLockMode.ReadOnly, PixelFormat.Format32bppRgb);
-            var pd = prev.LockBits(new Rectangle(0, 0, _width, _height), ImageLockMode.ReadOnly, PixelFormat.Format32bppRgb);
-            try
+
+            // 非unsafe方式: 采样比较（性能足够，避免unsafe编译问题）
+            for (int by = 0; by < _height; by += block)
             {
-                unsafe
+                for (int bx = 0; bx < _width; bx += block)
                 {
-                    byte* cp = (byte*)cd.Scan0, pp = (byte*)pd.Scan0;
-                    int stride = cd.Stride;
-                    for (int by = 0; by < _height; by += block)
-                        for (int bx = 0; bx < _width; bx += block)
-                        {
-                            int px = Math.Min(bx + block / 2, _width - 1);
-                            int py = Math.Min(by + block / 2, _height - 1);
-                            int off = py * stride + px * 4;
-                            if (cp[off] != pp[off] || cp[off+1] != pp[off+1] || cp[off+2] != pp[off+2])
-                            {
-                                changed = true;
-                                if (bx < minX) minX = bx; if (by < minY) minY = by;
-                                if (bx + block > maxX) maxX = bx + block; if (by + block > maxY) maxY = by + block;
-                            }
-                        }
+                    int px = Math.Min(bx + block / 2, _width - 1);
+                    int py = Math.Min(by + block / 2, _height - 1);
+                    var c1 = cur.GetPixel(px, py);
+                    var c2 = prev.GetPixel(px, py);
+                    if (Math.Abs(c1.R - c2.R) > 10 || Math.Abs(c1.G - c2.G) > 10 || Math.Abs(c1.B - c2.B) > 10)
+                    {
+                        changed = true;
+                        if (bx < minX) minX = bx; if (by < minY) minY = by;
+                        if (bx + block > maxX) maxX = bx + block; if (by + block > maxY) maxY = by + block;
+                    }
                 }
             }
-            finally { cur.UnlockBits(cd); prev.UnlockBits(pd); }
+
             if (!changed) return null;
-            return new Rectangle(Math.Max(0,minX-4), Math.Max(0,minY-4), Math.Min(_width,maxX+4)-Math.Max(0,minX-4), Math.Min(_height,maxY+4)-Math.Max(0,minY-4));
+            minX = Math.Max(0, minX - 4); minY = Math.Max(0, minY - 4);
+            maxX = Math.Min(_width, maxX + 4); maxY = Math.Min(_height, maxY + 4);
+            return new Rectangle(minX, minY, maxX - minX, maxY - minY);
         }
 
         private ScreenFrameMessage BuildFrame(Bitmap src, int x, int y, int w, int h, bool isFull)
         {
-            Bitmap? region = (x==0&&y==0&&w==_width&&h==_height) ? src : src.Clone(new Rectangle(x,y,w,h), PixelFormat.Format32bppRgb);
+            Bitmap? region = (x == 0 && y == 0 && w == _width && h == _height) ? src : src.Clone(new Rectangle(x, y, w, h), PixelFormat.Format32bppRgb);
             using var ms = new MemoryStream();
             var ep = new EncoderParameters(1);
             ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, (long)_quality);
@@ -147,7 +144,7 @@ namespace VisualControl.Client.Screen
             region.Save(ms, codec, ep);
             if (!ReferenceEquals(region, src)) region.Dispose();
             var compressed = Lz4Helper.Compress(ms.ToArray());
-            return new ScreenFrameMessage { X=x, Y=y, Width=w, Height=h, IsFullFrame=isFull, JpegQuality=_quality, ImageData=compressed };
+            return new ScreenFrameMessage { X = x, Y = y, Width = w, Height = h, IsFullFrame = isFull, JpegQuality = _quality, ImageData = compressed };
         }
 
         public void Dispose() => Stop();

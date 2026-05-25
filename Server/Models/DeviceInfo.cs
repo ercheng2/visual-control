@@ -1,3 +1,6 @@
+using System;
+using VisualControl.Shared.Protocol;
+
 namespace VisualControl.Server.Models
 {
     public class DeviceInfo
@@ -14,9 +17,9 @@ namespace VisualControl.Server.Models
         public DateTime ConnectTime { get; set; } = DateTime.Now;
         public DateTime LastHeartbeat { get; set; } = DateTime.Now;
 
-        public Protocol.DeviceInfoMessage ToMessage()
+        public DeviceInfoMessage ToMessage()
         {
-            return new Protocol.DeviceInfoMessage
+            return new DeviceInfoMessage
             {
                 DeviceId = DeviceId,
                 DeviceName = DeviceName,

@@ -1,16 +1,15 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using VisualControl.Server.Models;
+using VisualControl.Shared.Crypto;
 using VisualControl.Shared.Protocol;
 
 namespace VisualControl.Server.Network
 {
-    /// <summary>
-    /// 服务端TCP监听器
-    /// </summary>
     public class ServerListener : IDisposable
     {
         public const int DEFAULT_PORT = 9600;
@@ -26,17 +25,15 @@ namespace VisualControl.Server.Network
 
         public int Port { get; private set; } = DEFAULT_PORT;
         public bool IsRunning { get; private set; }
-        public IReadOnlyDictionary<string, ClientConnection> Connections => _connections;
+        public Dictionary<string, ClientConnection> Connections => new Dictionary<string, ClientConnection>(_connections);
 
         public void Start(int port = DEFAULT_PORT)
         {
             if (IsRunning) return;
-
             Port = port;
             _listener = new TcpListener(IPAddress.Any, Port);
             _listener.Start();
             IsRunning = true;
-
             _acceptThread = new Thread(AcceptLoop) { IsBackground = true };
             _acceptThread.Start();
         }
@@ -46,9 +43,7 @@ namespace VisualControl.Server.Network
             if (!IsRunning) return;
             IsRunning = false;
             _listener?.Stop();
-
-            foreach (var conn in _connections.Values)
-                conn.Dispose();
+            foreach (var conn in _connections.Values) conn.Dispose();
             _connections.Clear();
         }
 
@@ -61,7 +56,7 @@ namespace VisualControl.Server.Network
                     var client = _listener!.AcceptTcpClient();
                     var connection = new ClientConnection(client, this);
                     var deviceId = $"DEV_{Interlocked.Increment(ref _deviceCounter):D4}";
-                    connection.SetAesKey(Crypto.AesHelper.GenerateKey());
+                    connection.SetAesKey(AesHelper.GenerateKey());
 
                     connection.MessageReceived += (conn, type, data) =>
                     {
@@ -70,15 +65,7 @@ namespace VisualControl.Server.Network
                             var reg = RegisterMessage.Deserialize(data);
                             conn.SetDeviceInfo(reg, deviceId);
                             _connections[deviceId] = conn;
-
-                            // 发送注册确认
-                            var ack = new RegisterAckMessage
-                            {
-                                Success = true,
-                                ServerVersion = "1.0",
-                                HeartbeatInterval = 10,
-                                Permission = PermissionLevel.Admin
-                            };
+                            var ack = new RegisterAckMessage { Success = true, ServerVersion = "1.0", HeartbeatInterval = 10, Permission = PermissionLevel.Admin };
                             conn.Send(MessageType.RegisterAck, ack.Serialize());
                             ClientConnected?.Invoke(conn);
                         }
@@ -92,13 +79,11 @@ namespace VisualControl.Server.Network
                             MessageReceived?.Invoke(conn, type, data);
                         }
                     };
-
                     connection.Disconnected += conn =>
                     {
                         _connections.TryRemove(conn.DeviceId, out _);
                         ClientDisconnected?.Invoke(conn);
                     };
-
                     connection.Start();
                 }
             }
@@ -106,24 +91,15 @@ namespace VisualControl.Server.Network
             catch (ObjectDisposedException) { }
         }
 
-        /// <summary>
-        /// 向指定设备发送消息
-        /// </summary>
         public void SendToDevice(string deviceId, MessageType type, byte[] payload)
         {
-            if (_connections.TryGetValue(deviceId, out var conn))
-                conn.Send(type, payload);
+            if (_connections.TryGetValue(deviceId, out var conn)) conn.Send(type, payload);
         }
 
-        /// <summary>
-        /// 向所有设备广播消息
-        /// </summary>
         public void Broadcast(MessageType type, byte[] payload)
         {
             foreach (var conn in _connections.Values)
-            {
-                try { conn.Send(type, payload); } catch { }
-            }
+            { try { conn.Send(type, payload); } catch { } }
         }
 
         public void Dispose()
