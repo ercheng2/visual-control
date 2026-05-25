@@ -1,0 +1,51 @@
+name: Build VisualControl
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    - name: Setup .NET Framework 4.8
+      shell: pwsh
+      run: |
+        $fxPath = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8"
+        if (!(Test-Path $fxPath)) {
+          Write-Error ".NET Framework 4.8 not found"
+          exit 1
+        }
+        Write-Host "Found .NET Framework 4.8 at $fxPath"
+    - name: Restore & Build
+      shell: pwsh
+      run: |
+        dotnet restore VisualControl.sln
+        dotnet build VisualControl.sln -c Release
+    - name: Package Server
+      shell: pwsh
+      run: |
+        dotnet publish Server/VisualControl.Server.csproj -c Release -r win-x64 --self-contained false -o publish/Server
+    - name: Package Client
+      shell: pwsh
+      run: |
+        dotnet publish Client/VisualControl.Client.csproj -c Release -r win-x64 --self-contained false -o publish/Client
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v1.0-${{ github.run_number }}
+        name: "VisualControl v1.0"
+        body: |
+          分布式可视化中控系统
+          - 控制端(VisualControlServer.exe): 设备管理、文件分发、远程桌面
+          - 显示端(VisualControlClient.exe): 后台托盘运行，接受控制
+        files: |
+          publish/Server/VisualControlServer.exe
+          publish/Client/VisualControlClient.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
