@@ -80,9 +80,8 @@ namespace VisualControl.Server.Forms
             _mainSplit = new SplitContainer
             {
                 Dock = DockStyle.Fill,
-                SplitterDistance = 320,
-                Panel1MinSize = 250,
-                Panel2MinSize = 400,
+                Panel1MinSize = 200,
+                Panel2MinSize = 300,
                 BackColor = Color.FromArgb(220, 225, 235),
                 SplitterWidth = 3
             };
@@ -303,6 +302,11 @@ namespace VisualControl.Server.Forms
 
             // 窗体关闭
             FormClosing += (s, e) => _server.Stop();
+            Load += (s, e) =>
+            {
+                if (_mainSplit.Width > 500)
+                    _mainSplit.SplitterDistance = 300;
+            };
 
             // 文件传输进度
             _fileTransfer.ProgressChanged += (task, progress) =>
