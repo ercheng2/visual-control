@@ -85,7 +85,7 @@ namespace VisualControl.Server.Network
                 byte[] data = payload;
                 if (_aesKey != null && type != MessageType.Heartbeat && type != MessageType.HeartbeatAck)
                 {
-                    data = Crypto.AesHelper.Encrypt(payload, _aesKey);
+                    data = AesHelper.Encrypt(payload, _aesKey);
                 }
 
                 var frame = FrameProtocol.Encode(type, data);
@@ -111,7 +111,7 @@ namespace VisualControl.Server.Network
                         if (_aesKey != null && type != MessageType.Heartbeat && type != MessageType.HeartbeatAck
                             && type != MessageType.Register)
                         {
-                            data = Crypto.AesHelper.Decrypt(payload, _aesKey);
+                            data = AesHelper.Decrypt(payload, _aesKey);
                         }
 
                         MessageReceived?.Invoke(this, type, data);
