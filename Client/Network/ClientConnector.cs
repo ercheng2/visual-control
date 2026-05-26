@@ -22,10 +22,11 @@ namespace VisualControl.Client.Network
         private Thread? _receiveThread, _heartbeatThread;
         private bool _disposed;
         private byte[]? _aesKey;
-        private readonly string _serverIp;
-        private readonly int _serverPort;
+        private string _serverIp;
+        private int _serverPort;
 
         public ClientConnector(string serverIp, int serverPort) { _serverIp = serverIp; _serverPort = serverPort; }
+        public void UpdateServer(string serverIp, int serverPort) { _serverIp = serverIp; _serverPort = serverPort; }
         public void SetAesKey(byte[] key) => _aesKey = key;
 
         public bool Connect()

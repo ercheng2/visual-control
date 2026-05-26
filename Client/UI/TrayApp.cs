@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Text.Json;
 using System.Windows.Forms;
 using VisualControl.Client.Network;
 using VisualControl.Client.Screen;
@@ -14,8 +15,8 @@ namespace VisualControl.Client.UI
     {
         private readonly ClientConnector _connector;
         private readonly ScreenCapture _screenCapture;
-        private readonly string _serverIp;
-        private readonly int _serverPort;
+        private string _serverIp;
+        private int _serverPort;
         private NotifyIcon _notifyIcon;
         private int _screenWidth, _screenHeight;
 
@@ -25,8 +26,13 @@ namespace VisualControl.Client.UI
         private int _receivedChunks, _totalChunks;
         private FileStream? _receivingStream;
 
+        private static readonly string ConfigPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "VisualControl", "client_config.json");
+
         public TrayApp(string serverIp, int serverPort, bool autoStart)
         {
+            LoadConfig(ref serverIp, ref serverPort);
             _serverIp = serverIp; _serverPort = serverPort;
             _connector = new ClientConnector(serverIp, serverPort);
             _screenCapture = new ScreenCapture();
@@ -123,10 +129,51 @@ namespace VisualControl.Client.UI
             var lblPort = new Label { Text = "端口:", Left = 20, Top = 60, AutoSize = true };
             var txtPort = new TextBox { Text = _serverPort.ToString(), Left = 90, Top = 57, Width = 200 };
             var btnConnect = new Button { Text = "连接", Left = 90, Top = 125, Width = 80, BackColor = Color.FromArgb(70, 130, 220), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-            btnConnect.Click += (s2, e2) => { _connector.Disconnect(); dlg.Close(); Connect(); };
+            btnConnect.Click += (s2, e2) =>
+            {
+                var newIp = txtIp.Text.Trim();
+                if (!int.TryParse(txtPort.Text.Trim(), out int newPort) || newPort < 1 || newPort > 65535)
+                { MessageBox.Show("端口无效，请输入1-65535之间的数字", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+                _connector.Disconnect();
+                _serverIp = newIp; _serverPort = newPort;
+                _connector.UpdateServer(newIp, newPort);
+                SaveConfig();
+                dlg.Close();
+                Connect();
+            };
             dlg.Controls.AddRange(new Control[] { lblIp, txtIp, lblPort, txtPort, btnConnect });
             dlg.ShowDialog();
         }
+
+        private void LoadConfig(ref string ip, ref int port)
+        {
+            try
+            {
+                if (!File.Exists(ConfigPath)) return;
+                var json = File.ReadAllText(ConfigPath);
+                var cfg = JsonSerializer.Deserialize<ClientConfig>(json);
+                if (cfg != null)
+                {
+                    if (!string.IsNullOrEmpty(cfg.Ip)) ip = cfg.Ip;
+                    if (cfg.Port > 0) port = cfg.Port;
+                }
+            }
+            catch { }
+        }
+
+        private void SaveConfig()
+        {
+            try
+            {
+                var dir = Path.GetDirectoryName(ConfigPath);
+                if (dir != null) Directory.CreateDirectory(dir);
+                var json = JsonSerializer.Serialize(new ClientConfig { Ip = _serverIp, Port = _serverPort });
+                File.WriteAllText(ConfigPath, json);
+            }
+            catch { }
+        }
+
+        private class ClientConfig { public string? Ip { get; set; } public int Port { get; set; } }
 
         private void ExecuteRemoteCommand(DeviceCommandMessage cmd)
         {
